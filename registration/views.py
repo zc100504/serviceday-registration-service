@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 from .models import Registration
+from django.core.cache import cache
+from django.conf import settings
 
 # Where your other services run
 NGO_SERVICE_URL = "http://localhost:8004"
@@ -240,3 +242,46 @@ def switch_registration(request, ngo_id):
     })
 
     return Response({'message': 'Switched successfully.'})
+
+# ─────────────────────────────────────────────────────
+# GET /api/v1/registrations/participants/<ngo_id>/
+# Cached participants list for an NGO activity
+# ─────────────────────────────────────────────────────
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def participants_list(request, ngo_id):
+    cache_key = f'participants_ngo_{ngo_id}'
+
+    # Try to get from cache first
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return Response({
+            'source': 'cache',       # ← shows it came from cache
+            'ngo_id': ngo_id,
+            'count': len(cached_data),
+            'participants': cached_data
+        })
+
+    # Not in cache — fetch from database
+    registrations = Registration.objects.filter(
+        ngo_id=ngo_id,
+        completed=False
+    ).values('id', 'employee_id', 'registered_at', 'completed')
+
+    data = list(registrations)
+
+    # Save to cache
+    cache.set(cache_key, data, timeout=settings.CACHE_TTL)
+
+    return Response({
+        'source': 'database',        # ← shows it came from database
+        'ngo_id': ngo_id,
+        'count': len(data),
+        'participants': data
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def clear_cache(request):
+    cache.clear()
+    return Response({'message': 'Cache cleared!'})
