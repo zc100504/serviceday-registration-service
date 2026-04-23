@@ -89,6 +89,9 @@ def register_activity(request, ngo_id):
 
         reg = Registration.objects.create(employee_id=employee_id, ngo_id=ngo_id)
 
+    cache.delete(f'participants_ngo_{ngo_id}')
+    cache.delete(f'participants_ngo_{ngo_id}_completed_None')
+    cache.delete(f'participants_ngo_{ngo_id}_completed_false')
     notify('confirmation/', {'employee_id': employee_id, 'ngo_id': ngo_id, 'registration_id': reg.id})
     return Response(
         {'message': 'Registered successfully.', 'registration': RegistrationSerializer(reg).data},  # ← serializer
@@ -117,6 +120,10 @@ def cancel_registration(request):
 
     ngo_id = reg.ngo_id
     reg.delete()
+
+    cache.delete(f'participants_ngo_{ngo_id}')
+    cache.delete(f'participants_ngo_{ngo_id}_completed_None')
+    cache.delete(f'participants_ngo_{ngo_id}_completed_false')
 
     notify('cancellation/', {'employee_id': employee_id, 'ngo_id': ngo_id})
     return Response({'message': 'Registration cancelled.'})
@@ -167,7 +174,7 @@ def switch_registration(request, ngo_id):
 
         current_count = Registration.objects.filter(ngo_id=ngo_id).count()
         max_slots = new_ngo.get('max_slots', 0)
-        print("SWITCH count:", current_count, "max:", max_slots)
+        
         if current_count >= max_slots:
             print("SWITCH FAIL: new ngo full")
             return Response({'error': 'New activity is full.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -175,6 +182,11 @@ def switch_registration(request, ngo_id):
         old_ngo_id = reg.ngo_id
         reg.ngo_id = ngo_id
         reg.save()
+
+        cache.delete(f'participants_ngo_{old_ngo_id}')
+        cache.delete(f'participants_ngo_{old_ngo_id}_completed_None')
+        cache.delete(f'participants_ngo_{ngo_id}')
+        cache.delete(f'participants_ngo_{ngo_id}_completed_None')
         notify('switch/', {'employee_id': employee_id, 'old_ngo_id': old_ngo_id, 'new_ngo_id': ngo_id})
         return Response({
             'message': 'Switched successfully.',
@@ -211,3 +223,24 @@ def participants_list(request, ngo_id):
         'participants': serializer.data
     })
 
+# GET /api/v1/registrations/counts/?ngo_ids=1,2,3
+@api_view(['GET'])
+@permission_classes([IsEmployeeOrAdmin])
+def registration_counts(request):
+    ngo_ids_param = request.query_params.get('ngo_ids', '')
+    
+    if not ngo_ids_param:
+        return Response({})
+    
+    try:
+        ngo_ids = [int(x) for x in ngo_ids_param.split(',')]
+    except ValueError:
+        return Response({'error': 'Invalid ngo_ids'}, status=status.HTTP_400_BAD_REQUEST)
+
+    counts = {}
+    for ngo_id in ngo_ids:
+        counts[ngo_id] = Registration.objects.filter(
+            ngo_id=ngo_id, completed=False
+        ).count()
+
+    return Response(counts)
