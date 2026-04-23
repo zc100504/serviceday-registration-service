@@ -1,6 +1,6 @@
 import requests
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from .permissions import IsEmployee, IsAdministrator, IsEmployeeOrAdmin
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
@@ -41,9 +41,9 @@ def notify(endpoint, payload):
 # GET /api/v1/registrations/my/
 # ─────────────────────────────────────────────
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsEmployee])
 def my_registration(request):
-    employee_id = request.user.id
+    employee_id = request.user.get('user_id')
     try:
         reg = Registration.objects.get(employee_id=employee_id, completed=False)
         return Response(RegistrationSerializer(reg).data)      # ← serializer
@@ -55,9 +55,9 @@ def my_registration(request):
 # POST /api/v1/registrations/register/<ngo_id>/
 # ─────────────────────────────────────────────
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsEmployee])
 def register_activity(request, ngo_id):
-    employee_id = request.user.id
+    employee_id = request.user.get('user_id')
 
     ngo = get_ngo(ngo_id)
     if not ngo:
@@ -94,9 +94,9 @@ def register_activity(request, ngo_id):
 # DELETE /api/v1/registrations/cancel/
 # ─────────────────────────────────────────────
 @api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsEmployee])
 def cancel_registration(request):
-    employee_id = request.user.id
+    employee_id = request.user.get('user_id')
 
     reg = Registration.objects.filter(employee_id=employee_id, completed=False).first()
     if not reg:
@@ -119,9 +119,9 @@ def cancel_registration(request):
 # PUT /api/v1/registrations/switch/<ngo_id>/
 # ─────────────────────────────────────────────
 @api_view(['PUT'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsEmployee])
 def switch_registration(request, ngo_id):
-    employee_id = request.user.id
+    employee_id = request.user.get('user_id')
 
     with transaction.atomic():
         reg = Registration.objects.filter(employee_id=employee_id, completed=False).first()
@@ -162,7 +162,7 @@ def switch_registration(request, ngo_id):
 # Cached participants list for an NGO activity
 # ─────────────────────────────────────────────────────
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsEmployeeOrAdmin])
 def participants_list(request, ngo_id):
     cache_key = f'participants_ngo_{ngo_id}'
 
