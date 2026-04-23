@@ -3,23 +3,23 @@ logger = logging.getLogger(__name__)
 
 
 class SecurityMiddleware:
-    """
-    Topic 7.1a — Adds security headers to every response.
-    Topic 7.2  — Logs unauthorized and forbidden access attempts.
-    """
-
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Log incoming request
+        # ← fix: handle dict user (StatelessJWT)
         user = request.user
-        display = user.username if user.is_authenticated else "anonymous"
+        if isinstance(user, dict):
+            display = user.get('username', 'unknown')
+        elif hasattr(user, 'is_authenticated') and user.is_authenticated:
+            display = user.username
+        else:
+            display = 'anonymous'
+
         logger.info(f"[REQUEST]  {request.method} {request.path} — user: {display}")
 
         response = self.get_response(request)
 
-        # ── Security Headers (Topic 7.1a) ──────────────────
         response['X-XSS-Protection']       = '1; mode=block'
         response['X-Content-Type-Options']  = 'nosniff'
         response['X-Frame-Options']         = 'DENY'
@@ -30,13 +30,11 @@ class SecurityMiddleware:
             "img-src 'self' data:;"
         )
 
-        # ── Unauthorized Access Logging (Topic 7.2) ────────
         if response.status_code == 401:
             logger.warning(
                 f"[UNAUTHORIZED] {request.method} {request.path} "
                 f"— IP: {self.get_client_ip(request)}"
             )
-
         if response.status_code == 403:
             logger.warning(
                 f"[FORBIDDEN] {request.method} {request.path} "
@@ -44,7 +42,6 @@ class SecurityMiddleware:
             )
 
         logger.info(f"[RESPONSE] {request.path} — status: {response.status_code}")
-
         return response
 
     def get_client_ip(self, request):

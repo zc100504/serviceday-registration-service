@@ -10,18 +10,24 @@ from django.conf import settings
 from .serializers import RegistrationSerializer
 
 # Where your other services run
-NGO_SERVICE_URL = "http://localhost:8004"
-NOTIFICATION_SERVICE_URL = "http://localhost:8005"
+NGO_SERVICE_URL = "http://localhost:8002"           # ← fix
+NOTIFICATION_SERVICE_URL = "http://localhost:8004"  # ← fix
 
 
 def get_ngo(ngo_id):
     """Fetch NGO data from ngo-service via HTTP"""
     try:
-        response = requests.get(f"{NGO_SERVICE_URL}/api/v1/ngos/{ngo_id}/")
+        response = requests.get(
+            f"{NGO_SERVICE_URL}/api/v1/activities/{ngo_id}/",
+            headers={
+                'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'  # ← add token
+            }
+        )
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            return data.get('data', data)
         return None
-    except requests.RequestException:
+    except requests.RequestException as e:
         return None
 
 
@@ -43,7 +49,7 @@ def notify(endpoint, payload):
 @api_view(['GET'])
 @permission_classes([IsEmployee])
 def my_registration(request):
-    employee_id = request.user.get('user_id')
+    employee_id = int(request.user.get('user_id'))
     try:
         reg = Registration.objects.get(employee_id=employee_id, completed=False)
         return Response(RegistrationSerializer(reg).data)      # ← serializer
@@ -57,7 +63,7 @@ def my_registration(request):
 @api_view(['POST'])
 @permission_classes([IsEmployee])
 def register_activity(request, ngo_id):
-    employee_id = request.user.get('user_id')
+    employee_id = int(request.user.get('user_id'))
 
     ngo = get_ngo(ngo_id)
     if not ngo:
@@ -96,7 +102,7 @@ def register_activity(request, ngo_id):
 @api_view(['DELETE'])
 @permission_classes([IsEmployee])
 def cancel_registration(request):
-    employee_id = request.user.get('user_id')
+    employee_id = int(request.user.get('user_id'))
 
     reg = Registration.objects.filter(employee_id=employee_id, completed=False).first()
     if not reg:
@@ -121,7 +127,7 @@ def cancel_registration(request):
 @api_view(['PUT'])
 @permission_classes([IsEmployee])
 def switch_registration(request, ngo_id):
-    employee_id = request.user.get('user_id')
+    employee_id = int(request.user.get('user_id'))
     print("SWITCH employee_id:", employee_id, "ngo_id:", ngo_id)
 
     with transaction.atomic():

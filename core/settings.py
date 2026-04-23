@@ -1,7 +1,6 @@
 from pathlib import Path
 import os
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'serviceday-local-dev-secret-key-2026')
@@ -17,12 +16,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework_simplejwt',
+    'corsheaders',              # ← add
     'registration',
-
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',        # ← add at TOP
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -31,7 +30,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'registration.middleware.SecurityMiddleware',  # Add the custom security middleware
+    'registration.middleware.SecurityMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -70,6 +69,8 @@ REST_FRAMEWORK = {
     ),
 }
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Asia/Kuala_Lumpur'
 USE_I18N = True
@@ -92,17 +93,19 @@ CACHES = {
     }
 }
 
-CACHE_TTL = 60 * 5  # cache for 5 minutes
+CACHE_TTL = 60 * 5  # 5 minutes
 
-# ── Internal Service Token ─────────────────
-INTERNAL_SERVICE_TOKEN = os.environ.get('INTERNAL_SERVICE_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjowLCJ1c2VybmFtZSI6Im5vdGlmaWNhdGlvbi1zZXJ2aWNlLWJvdCIsImdyb3VwcyI6WyJFbXBsb3llZSJdLCJleHAiOjQwNzA5MDg4MDB9.IGtg69tZ7mph5uQ-NWH4x44lJEBoGyhIXmnSmkUwKeE')
-
+# ── Service URLs ───────────────────────────
 NGO_SERVICE_URL = os.environ.get(
-    'NGO_SERVICE_URL', 'http://127.0.0.1:8002'
+    'NGO_SERVICE_URL', 'http://127.0.0.1:8002'          # ← ngo service
 )
-
 NOTIFICATION_SERVICE_URL = os.environ.get(
-    'NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004'
+    'NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004'  # ← notification service
+)
+# ── Internal Service Token ─────────────────
+INTERNAL_SERVICE_TOKEN = os.environ.get(
+    'INTERNAL_SERVICE_TOKEN',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjowLCJ1c2VybmFtZSI6Im5vdGlmaWNhdGlvbi1zZXJ2aWNlLWJvdCIsImdyb3VwcyI6WyJFbXBsb3llZSJdLCJleHAiOjQwNzA5MDg4MDB9.IGtg69tZ7mph5uQ-NWH4x44lJEBoGyhIXmnSmkUwKeE'
 )
 
 LOGGING = {
