@@ -7,7 +7,8 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'serviceday-local-dev-secret-key-2026')
+
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = ['*']
 
@@ -93,3 +94,14 @@ CACHES = {
 }
 
 CACHE_TTL = 60 * 5  # cache for 5 minutes
+
+# ── Internal Service Token ─────────────────
+INTERNAL_SERVICE_TOKEN = os.environ.get('INTERNAL_SERVICE_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjowLCJ1c2VybmFtZSI6Im5vdGlmaWNhdGlvbi1zZXJ2aWNlLWJvdCIsImdyb3VwcyI6WyJFbXBsb3llZSJdLCJleHAiOjQwNzA5MDg4MDB9.IGtg69tZ7mph5uQ-NWH4x44lJEBoGyhIXmnSmkUwKeE')
+
+NGO_SERVICE_URL = os.environ.get(
+    'NGO_SERVICE_URL', 'http://127.0.0.1:8002'
+)
+
+NOTIFICATION_SERVICE_URL = os.environ.get(
+    'NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004'
+)
