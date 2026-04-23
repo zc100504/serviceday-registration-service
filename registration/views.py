@@ -122,40 +122,58 @@ def cancel_registration(request):
 @permission_classes([IsEmployee])
 def switch_registration(request, ngo_id):
     employee_id = request.user.get('user_id')
+    print("SWITCH employee_id:", employee_id, "ngo_id:", ngo_id)
 
     with transaction.atomic():
         reg = Registration.objects.filter(employee_id=employee_id, completed=False).first()
+        print("SWITCH reg:", reg)
+
         if not reg:
+            print("SWITCH FAIL: no registration")
             return Response({'error': 'You must register first.'}, status=status.HTTP_400_BAD_REQUEST)
 
         old_ngo = get_ngo(reg.ngo_id)
+        print("SWITCH old_ngo is_ended:", old_ngo.get('is_ended') if old_ngo else None)
+        print("SWITCH old_ngo is_closed:", old_ngo.get('is_closed') if old_ngo else None)
+
         if old_ngo:
             if old_ngo.get('is_ended'):
-                return Response({'error': 'Your event has already started. Please register for a new activity instead.'}, status=status.HTTP_400_BAD_REQUEST)
+                print("SWITCH FAIL: old event ended")
+                return Response({'error': 'Your event has already started.'}, status=status.HTTP_400_BAD_REQUEST)
             if old_ngo.get('is_closed'):
+                print("SWITCH FAIL: old event closed")
                 return Response({'error': 'Cannot switch after cut-off date.'}, status=status.HTTP_400_BAD_REQUEST)
 
         new_ngo = get_ngo(ngo_id)
+        print("SWITCH new_ngo:", new_ngo.get('name') if new_ngo else None)
+        print("SWITCH new is_closed:", new_ngo.get('is_closed') if new_ngo else None)
+        print("SWITCH new is_ended:", new_ngo.get('is_ended') if new_ngo else None)
+
         if not new_ngo:
+            print("SWITCH FAIL: new ngo not found")
             return Response({'error': 'New activity not found.'}, status=status.HTTP_404_NOT_FOUND)
         if new_ngo.get('is_closed'):
+            print("SWITCH FAIL: new ngo closed")
             return Response({'error': 'Selected activity is no longer open.'}, status=status.HTTP_400_BAD_REQUEST)
         if new_ngo.get('is_ended'):
+            print("SWITCH FAIL: new ngo ended")
             return Response({'error': 'Selected activity has already ended.'}, status=status.HTTP_400_BAD_REQUEST)
 
         current_count = Registration.objects.filter(ngo_id=ngo_id).count()
-        if current_count >= new_ngo.get('max_slots', 0):
+        max_slots = new_ngo.get('max_slots', 0)
+        print("SWITCH count:", current_count, "max:", max_slots)
+        if current_count >= max_slots:
+            print("SWITCH FAIL: new ngo full")
             return Response({'error': 'New activity is full.'}, status=status.HTTP_400_BAD_REQUEST)
 
         old_ngo_id = reg.ngo_id
         reg.ngo_id = ngo_id
         reg.save()
-
-    notify('switch/', {'employee_id': employee_id, 'old_ngo_id': old_ngo_id, 'new_ngo_id': ngo_id})
-    return Response({
-        'message': 'Switched successfully.',
-        'registration': RegistrationSerializer(reg).data      # ← serializer
-    })
+        notify('switch/', {'employee_id': employee_id, 'old_ngo_id': old_ngo_id, 'new_ngo_id': ngo_id})
+        return Response({
+            'message': 'Switched successfully.',
+            'registration': RegistrationSerializer(reg).data
+        })
 
 # ─────────────────────────────────────────────────────
 # GET /api/v1/registrations/participants/<ngo_id>/
