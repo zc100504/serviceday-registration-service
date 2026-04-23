@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'registration',
+    'registration.middleware.SecurityMiddleware',  # Add the custom security middleware
 ]
 
 MIDDLEWARE = [
@@ -102,3 +103,17 @@ NGO_SERVICE_URL = os.environ.get(
 NOTIFICATION_SERVICE_URL = os.environ.get(
     'NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004'
 )
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
