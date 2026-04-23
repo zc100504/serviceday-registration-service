@@ -8,15 +8,19 @@ from .models import Registration
 from django.core.cache import cache
 from django.conf import settings
 
-# Where your other services run
-NGO_SERVICE_URL = "http://localhost:8004"
-NOTIFICATION_SERVICE_URL = "http://localhost:8005"
-
+def _internal_headers():
+    """Auth header for service-to-service calls."""
+    token = getattr(settings, 'INTERNAL_SERVICE_TOKEN', '')
+    return {'Authorization': f'Bearer {token}'} if token else {}
 
 def get_ngo(ngo_id):
     """Fetch NGO data from ngo-service via HTTP"""
     try:
-        response = requests.get(f"{NGO_SERVICE_URL}/api/v1/ngos/{ngo_id}/")
+        response = requests.get(
+            f"{settings.NGO_SERVICE_URL}/api/v1/ngos/{ngo_id}/",
+            headers = _internal_headers(),   # ← add this
+            timeout = 10,                    # ← add this
+        )
         if response.status_code == 200:
             return response.json()
         return None
@@ -28,13 +32,13 @@ def notify(endpoint, payload):
     """Fire and forget — call notification-service"""
     try:
         requests.post(
-            f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}/",
-            json=payload,
-            timeout=3
+            f"{settings.NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}/",
+            json    = payload,
+            headers = _internal_headers(),   # ← add this
+            timeout = 3,
         )
     except requests.RequestException:
-        pass  # notification failure should NOT block registration
-
+        pass
 
 # ─────────────────────────────────────────────
 # GET /api/v1/registrations/my/
@@ -116,7 +120,7 @@ def register_activity(request, ngo_id):
         )
 
     # 6. Notify (outside transaction — same as your monolith)
-    notify('confirmation/', {
+    notify('confirmation', {
         'employee_id': employee_id,
         'ngo_id': ngo_id,
         'registration_id': reg.id,
@@ -163,7 +167,7 @@ def cancel_registration(request):
     ngo_id = reg.ngo_id
     reg.delete()  # cancelled = deleted, same as your monolith
 
-    notify('cancellation/', {
+    notify('cancellation', {
         'employee_id': employee_id,
         'ngo_id': ngo_id,
     })
@@ -235,7 +239,7 @@ def switch_registration(request, ngo_id):
         reg.ngo_id = ngo_id
         reg.save()
 
-    notify('switch/', {
+    notify('switch', {
         'employee_id': employee_id,
         'old_ngo_id': old_ngo_id,
         'new_ngo_id': ngo_id,
