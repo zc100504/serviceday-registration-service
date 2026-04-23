@@ -7,5 +7,4 @@ urlpatterns = [
     path('cancel/', views.cancel_registration),                 # DELETE - cancel
     path('switch/<int:ngo_id>/', views.switch_registration),
     path('participants/<int:ngo_id>/', views.participants_list),      # GET   - view participants
-    path('cache/clear/', views.clear_cache),   # ← temporary, for testing
 ]
