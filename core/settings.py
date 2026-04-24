@@ -96,6 +96,7 @@ CACHES = {
 CACHE_TTL = 60 * 5  # 5 minutes
 
 # ── Service URLs ───────────────────────────
+USER_SERVICE_URL       = os.environ.get('USER_SERVICE_URL', 'http://127.0.0.1:8001')
 NGO_SERVICE_URL = os.environ.get(
     'NGO_SERVICE_URL', 'http://127.0.0.1:8002'          # ← ngo service
 )

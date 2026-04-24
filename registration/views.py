@@ -92,7 +92,7 @@ def register_activity(request, ngo_id):
     cache.delete(f'participants_ngo_{ngo_id}')
     cache.delete(f'participants_ngo_{ngo_id}_completed_None')
     cache.delete(f'participants_ngo_{ngo_id}_completed_false')
-    notify('confirmation/', {'employee_id': employee_id, 'ngo_id': ngo_id, 'registration_id': reg.id})
+    notify('confirmation', {'employee_id': employee_id, 'ngo_id': ngo_id, 'registration_id': reg.id})
     return Response(
         {'message': 'Registered successfully.', 'registration': RegistrationSerializer(reg).data},  # ← serializer
         status=status.HTTP_201_CREATED
@@ -125,7 +125,7 @@ def cancel_registration(request):
     cache.delete(f'participants_ngo_{ngo_id}_completed_None')
     cache.delete(f'participants_ngo_{ngo_id}_completed_false')
 
-    notify('cancellation/', {'employee_id': employee_id, 'ngo_id': ngo_id})
+    notify('cancellation', {'employee_id': employee_id, 'ngo_id': ngo_id})
     return Response({'message': 'Registration cancelled.'})
 
 # ─────────────────────────────────────────────
@@ -187,7 +187,7 @@ def switch_registration(request, ngo_id):
         cache.delete(f'participants_ngo_{old_ngo_id}_completed_None')
         cache.delete(f'participants_ngo_{ngo_id}')
         cache.delete(f'participants_ngo_{ngo_id}_completed_None')
-        notify('switch/', {'employee_id': employee_id, 'old_ngo_id': old_ngo_id, 'new_ngo_id': ngo_id})
+        notify('switch', {'employee_id': employee_id, 'old_ngo_id': old_ngo_id, 'new_ngo_id': ngo_id})
         return Response({
             'message': 'Switched successfully.',
             'registration': RegistrationSerializer(reg).data
@@ -222,6 +222,54 @@ def participants_list(request, ngo_id):
         'count': len(serializer.data),
         'participants': serializer.data
     })
+
+@api_view(['GET'])
+@permission_classes([IsEmployeeOrAdmin])
+def registrations_by_date(request):
+    service_date = request.query_params.get('service_date')
+    if not service_date:
+        return Response({'error': 'service_date is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        ngo_resp = requests.get(
+            f"{NGO_SERVICE_URL}/api/v1/activities/",
+            params={'service_date': service_date},
+            headers={'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'},
+        )
+        ngo_resp.raise_for_status()
+        ngos = ngo_resp.json().get('results', [])
+        ngo_map = {ngo['id']: ngo for ngo in ngos}
+        ngo_ids = list(ngo_map.keys())
+    except Exception as e:
+        return Response({'error': f'Failed to fetch NGOs: {e}'}, status=status.HTTP_502_BAD_GATEWAY)
+
+    registrations = Registration.objects.filter(ngo_id__in=ngo_ids, completed=False)
+
+    results = []
+    for reg in registrations:
+        ngo  = ngo_map.get(reg.ngo_id, {})
+        try:
+            user_resp = requests.get(
+                f"{settings.USER_SERVICE_URL}/api/v1/users/{reg.employee_id}/",
+                headers={'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'},
+            )
+            user = user_resp.json() if user_resp.status_code == 200 else {}
+        except Exception as e:
+            user = {}
+
+        results.append({
+            'employee_id':    reg.employee_id,
+            'employee_email': user.get('email', ''),
+            'employee_name':  f"{user.get('first_name', '')} {user.get('last_name', '')}".strip(),
+            'ngo_id':         reg.ngo_id,
+            'ngo_name':       ngo.get('name', ''),
+            'service_date':   ngo.get('service_date', ''),
+            'start_time':     ngo.get('start_time', ''),
+            'end_time':       ngo.get('end_time', ''),
+            'location':       ngo.get('location', ''),
+        })
+
+    return Response({'results': results})
 
 # GET /api/v1/registrations/counts/?ngo_ids=1,2,3
 @api_view(['GET'])
