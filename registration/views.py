@@ -306,13 +306,9 @@ def registration_counts(request):
 @api_view(['GET'])
 @permission_classes([IsEmployeeOrAdmin])
 def registration_emails(request):
-    """
-    GET /api/v1/registrations/emails/?ngo_ids=1&ngo_ids=2
-    Returns emails of employees registered for specific NGOs.
-    """
     ngo_ids = request.query_params.getlist('ngo_ids')
     if not ngo_ids:
-        return Response({'emails': []})
+        return Response({'emails': [], 'user_map': {}})
 
     employee_ids = list(
         Registration.objects.filter(
@@ -322,9 +318,8 @@ def registration_emails(request):
     )
 
     if not employee_ids:
-        return Response({'emails': []})
+        return Response({'emails': [], 'user_map': {}})
 
-    # fetch emails from user-service
     try:
         headers  = _internal_headers()
         response = requests.get(
@@ -333,8 +328,11 @@ def registration_emails(request):
             headers = headers,
             timeout = 10,
         )
-        emails = response.json().get('emails', [])
+        data     = response.json()
+        emails   = data.get('emails', [])
+        user_map = data.get('user_map', {})  # ← get user map
     except Exception:
-        emails = []
+        emails   = []
+        user_map = {}
 
-    return Response({'emails': emails})
+    return Response({'emails': emails, 'user_map': user_map})
