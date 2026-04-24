@@ -1,6 +1,7 @@
 import requests
 from rest_framework.decorators import api_view, permission_classes
 from .permissions import IsEmployee, IsAdministrator, IsEmployeeOrAdmin
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
@@ -13,15 +14,18 @@ from .serializers import RegistrationSerializer
 NGO_SERVICE_URL = "http://localhost:8002"           # ← fix
 NOTIFICATION_SERVICE_URL = "http://localhost:8004"  # ← fix
 
+def _internal_headers():
+    return {
+        'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}',
+        'Content-Type':  'application/json',
+    }
 
 def get_ngo(ngo_id):
     """Fetch NGO data from ngo-service via HTTP"""
     try:
         response = requests.get(
             f"{NGO_SERVICE_URL}/api/v1/activities/{ngo_id}/",
-            headers={
-                'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'  # ← add token
-            }
+            headers=_internal_headers()  # ← add internal token
         )
         if response.status_code == 200:
             data = response.json()
@@ -32,15 +36,16 @@ def get_ngo(ngo_id):
 
 
 def notify(endpoint, payload):
-    """Fire and forget — call notification-service"""
+    """Fire and forget — call notification-service with internal token"""
     try:
         requests.post(
-            f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint}/",
-            json=payload,
-            timeout=3
+            f"{NOTIFICATION_SERVICE_URL}/api/v1/notifications/{endpoint.strip('/')}/" ,
+            json    = payload,
+            headers = _internal_headers(),  # ← add internal token
+            timeout = 3
         )
     except requests.RequestException:
-        pass  # notification failure should NOT block registration
+        pass
 
 
 # ─────────────────────────────────────────────
@@ -234,7 +239,7 @@ def registrations_by_date(request):
         ngo_resp = requests.get(
             f"{NGO_SERVICE_URL}/api/v1/activities/",
             params={'service_date': service_date},
-            headers={'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'},
+            headers=_internal_headers(),
         )
         ngo_resp.raise_for_status()
         ngos = ngo_resp.json().get('results', [])
@@ -251,7 +256,7 @@ def registrations_by_date(request):
         try:
             user_resp = requests.get(
                 f"{settings.USER_SERVICE_URL}/api/v1/users/{reg.employee_id}/",
-                headers={'Authorization': f'Bearer {settings.INTERNAL_SERVICE_TOKEN}'},
+                headers=_internal_headers(),
             )
             user = user_resp.json() if user_resp.status_code == 200 else {}
         except Exception as e:
@@ -275,20 +280,61 @@ def registrations_by_date(request):
 @api_view(['GET'])
 @permission_classes([IsEmployeeOrAdmin])
 def registration_counts(request):
-    ngo_ids_param = request.query_params.get('ngo_ids', '')
-    
-    if not ngo_ids_param:
+    # handle both formats: ?ngo_ids=1&ngo_ids=2 or ?ngo_ids=1,2,3
+    ngo_ids_list = request.query_params.getlist('ngo_ids')
+
+    if len(ngo_ids_list) == 1 and ',' in ngo_ids_list[0]:
+        ngo_ids_list = ngo_ids_list[0].split(',')
+
+    if not ngo_ids_list:
         return Response({})
-    
+
     try:
-        ngo_ids = [int(x) for x in ngo_ids_param.split(',')]
+        ngo_ids = [int(x.strip()) for x in ngo_ids_list]
     except ValueError:
         return Response({'error': 'Invalid ngo_ids'}, status=status.HTTP_400_BAD_REQUEST)
 
     counts = {}
     for ngo_id in ngo_ids:
-        counts[ngo_id] = Registration.objects.filter(
-            ngo_id=ngo_id, completed=False
+        counts[str(ngo_id)] = Registration.objects.filter(
+            ngo_id=ngo_id,
+            completed=False
         ).count()
 
     return Response(counts)
+
+@api_view(['GET'])
+@permission_classes([IsEmployeeOrAdmin])
+def registration_emails(request):
+    """
+    GET /api/v1/registrations/emails/?ngo_ids=1&ngo_ids=2
+    Returns emails of employees registered for specific NGOs.
+    """
+    ngo_ids = request.query_params.getlist('ngo_ids')
+    if not ngo_ids:
+        return Response({'emails': []})
+
+    employee_ids = list(
+        Registration.objects.filter(
+            ngo_id__in=ngo_ids,
+            completed=False
+        ).values_list('employee_id', flat=True).distinct()
+    )
+
+    if not employee_ids:
+        return Response({'emails': []})
+
+    # fetch emails from user-service
+    try:
+        headers  = _internal_headers()
+        response = requests.get(
+            f"{settings.USER_SERVICE_URL}/api/v1/users/employees/emails/",
+            params  = {'ids': employee_ids},
+            headers = headers,
+            timeout = 10,
+        )
+        emails = response.json().get('emails', [])
+    except Exception:
+        emails = []
+
+    return Response({'emails': emails})

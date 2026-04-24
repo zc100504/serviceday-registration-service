@@ -9,4 +9,6 @@ urlpatterns = [
     path('switch/<int:ngo_id>/', views.switch_registration),
     path('participants/<int:ngo_id>/', views.participants_list),      # GET   - view participants
     path('counts/', views.registration_counts),  # ← add this
+    path('emails/', views.registration_emails),  # ← add this
+
 ]
