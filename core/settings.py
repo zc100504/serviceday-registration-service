@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'serviceday-local-dev-secret-key-2026')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('REGISTRATION_SERVICE_URL', '127.0.0.1 localhost').split()
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -86,10 +86,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
+        'LOCATION': os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1'),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        },
+        'TIMEOUT': 300,
     }
 }
 
@@ -97,12 +98,9 @@ CACHE_TTL = 60 * 5  # 5 minutes
 
 # ── Service URLs ───────────────────────────
 USER_SERVICE_URL       = os.environ.get('USER_SERVICE_URL', 'http://127.0.0.1:8001')
-NGO_SERVICE_URL = os.environ.get(
-    'NGO_SERVICE_URL', 'http://127.0.0.1:8002'          # ← ngo service
-)
-NOTIFICATION_SERVICE_URL = os.environ.get(
-    'NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004'  # ← notification service
-)
+NGO_SERVICE_URL = os.environ.get('NGO_SERVICE_URL', 'http://127.0.0.1:8002'          )
+NOTIFICATION_SERVICE_URL = os.environ.get('NOTIFICATION_SERVICE_URL', 'http://127.0.0.1:8004' )
+
 # ── Internal Service Token ─────────────────
 INTERNAL_SERVICE_TOKEN = os.environ.get(
     'INTERNAL_SERVICE_TOKEN',

@@ -11,8 +11,8 @@ from django.conf import settings
 from .serializers import RegistrationSerializer
 
 # Where your other services run
-NGO_SERVICE_URL = "http://localhost:8002"           # ← fix
-NOTIFICATION_SERVICE_URL = "http://localhost:8004"  # ← fix
+NGO_SERVICE_URL = settings.NGO_SERVICE_URL          
+NOTIFICATION_SERVICE_URL = settings.NOTIFICATION_SERVICE_URL   
 
 def _internal_headers():
     return {
@@ -331,8 +331,10 @@ def registration_emails(request):
         data     = response.json()
         emails   = data.get('emails', [])
         user_map = data.get('user_map', {})  # ← get user map
+        user_id_map = data.get('user_id_map', {})
     except Exception:
         emails   = []
         user_map = {}
+        user_id_map = {}
 
-    return Response({'emails': emails, 'user_map': user_map})
+    return Response({'emails': emails, 'user_map': user_map, 'user_id_map': user_id_map})
