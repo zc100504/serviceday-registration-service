@@ -331,8 +331,10 @@ def registration_emails(request):
         data     = response.json()
         emails   = data.get('emails', [])
         user_map = data.get('user_map', {})  # ← get user map
+        user_id_map = data.get('user_id_map', {})
     except Exception:
         emails   = []
         user_map = {}
+        user_id_map = {}
 
-    return Response({'emails': emails, 'user_map': user_map})
+    return Response({'emails': emails, 'user_map': user_map, 'user_id_map': user_id_map})
