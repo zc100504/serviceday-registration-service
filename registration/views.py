@@ -11,8 +11,8 @@ from django.conf import settings
 from .serializers import RegistrationSerializer
 
 # Where your other services run
-NGO_SERVICE_URL = "http://localhost:8002"           # ← fix
-NOTIFICATION_SERVICE_URL = "http://localhost:8004"  # ← fix
+NGO_SERVICE_URL = settings.NGO_SERVICE_URL          
+NOTIFICATION_SERVICE_URL = settings.NOTIFICATION_SERVICE_URL   
 
 def _internal_headers():
     return {
