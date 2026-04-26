@@ -338,3 +338,50 @@ def registration_emails(request):
         user_id_map = {}
 
     return Response({'emails': emails, 'user_map': user_map, 'user_id_map': user_id_map})
+
+
+import time
+
+@api_view(['GET'])
+@permission_classes([IsEmployeeOrAdmin])
+def cache_benchmark(request, ngo_id):
+    """
+    Topic 9.3 — Performance comparison: cache vs database
+    GET /api/v1/registrations/benchmark/<ngo_id>/
+    """
+
+    # ── Measure DATABASE time ──────────────────
+    cache.delete(f'participants_ngo_{ngo_id}')  # clear cache first
+
+    db_start = time.time()
+    registrations = Registration.objects.filter(
+        ngo_id=ngo_id, completed=False
+    )
+    serializer = RegistrationSerializer(registrations, many=True)
+    data = serializer.data
+    db_end = time.time()
+    db_time = round((db_end - db_start) * 1000, 3)  # ms
+
+    # save to cache
+    cache.set(f'participants_ngo_{ngo_id}', data, timeout=settings.CACHE_TTL)
+
+    # ── Measure CACHE time ─────────────────────
+    cache_start = time.time()
+    cached_data = cache.get(f'participants_ngo_{ngo_id}')
+    cache_end = time.time()
+    cache_time = round((cache_end - cache_start) * 1000, 3)  # ms
+
+    # ── Calculate improvement ──────────────────
+    if cache_time > 0:
+        speedup = round(db_time / cache_time, 1)
+    else:
+        speedup = 0
+
+    return Response({
+        'ngo_id': ngo_id,
+        'db_query_ms': db_time,
+        'cache_hit_ms': cache_time,
+        'speedup_x': speedup,
+        'note': f'Cache is ~{speedup}x faster than database query',
+        'participant_count': len(data),
+    })
