@@ -25,9 +25,10 @@ class SecurityMiddleware:
         response['X-Frame-Options']         = 'DENY'
         response['Content-Security-Policy'] = (
             "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:;"
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https://cdn.jsdelivr.net;"
         )
 
         if response.status_code == 401:

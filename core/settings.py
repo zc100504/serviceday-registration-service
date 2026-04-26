@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',              # ← add
     'registration',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -69,6 +70,16 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Registration Service API',
+    'DESCRIPTION': 'API documentation for the registration service — ngo registration, cancellation and switching.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,  # hides the raw schema from the doc UIs
+    'SCHEMA_PATH_PREFIX': '/api/v1',
+    'COMPONENT_SPLIT_REQUEST': True,  # separates request vs response schemas
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
